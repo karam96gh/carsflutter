@@ -175,20 +175,7 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
       final carData = {
         'title': _titleController.text,
         'description': _descriptionController.text,
-        'type': _type,
-        'category': _category,
-        'make': _makeController.text,
-        'model': _modelController.text,
-        'year': int.parse(_yearController.text),
-        'mileage': _mileageController.text.isNotEmpty
-            ? int.parse(_mileageController.text)
-            : null,
-        'price': double.parse(_priceController.text),
-        'contactNumber': _contactNumberController.text,
-        'location': _locationController.text.isNotEmpty
-            ? _locationController.text
-            : null,
-        'specifications': _specifications,
+        // ... باقي البيانات
       };
 
       if (widget.carId != null) {
@@ -196,42 +183,26 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
         await Provider.of<CarProvider>(context, listen: false)
             .updateCar(widget.carId!, carData);
 
-        // تحميل الصور الجديدة
+        // تحميل الصور الجديدة إذا كانت هناك
         if (_selectedImages.isNotEmpty) {
           await Provider.of<CarProvider>(context, listen: false)
               .uploadCarImages(widget.carId!, _selectedImages);
         }
-
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تم تحديث السيارة بنجاح'),
-            backgroundColor: Colors.green,
-          ),
-        );
       } else {
-        // إضافة سيارة جديدة
-        final newCarId = await Provider.of<CarProvider>(context, listen: false)
-            .addCar(carData);
-
-        // تحميل الصور
-        if (_selectedImages.isNotEmpty) {
-          await Provider.of<CarProvider>(context, listen: false)
-              .uploadCarImages(newCarId, _selectedImages);
-        }
-
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تمت إضافة السيارة بنجاح'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        // إضافة سيارة جديدة مع الصور في نفس الطلب
+        await Provider.of<CarProvider>(context, listen: false)
+            .addCar(carData, images: _selectedImages);
       }
 
       if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.carId != null ? 'تم تحديث السيارة بنجاح' : 'تمت إضافة السيارة بنجاح'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
@@ -756,6 +727,7 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
             const SizedBox(height: 16),
 
             // زر إضافة صور
+            // تحديث طريقة معالجة الصور المختارة
             ImagePickerWidget(
               onImagesSelected: (images) {
                 setState(() {
@@ -771,16 +743,33 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
                   }
 
                   if (images.length > remainingSlots) {
-                    _selectedImages.addAll(images.sublist(0, remainingSlots) as Iterable<XFile>);
+                    // هنا نحول من File إلى XFile
+                    final xFiles = images.take(remainingSlots).map((file) =>
+                        XFile(file.path, name: file.path.split('/').last)
+                    ).toList();
+
+                    _selectedImages.addAll(xFiles);
+
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('تم إضافة $remainingSlots صور فقط. الحد الأقصى هو 5 صور')),
                     );
                   } else {
-                    _selectedImages.addAll(images as Iterable<XFile>);
+                    // هنا نحول من File إلى XFile
+                    final xFiles = images.map((file) =>
+                        XFile(file.path, name: file.path.split('/').last)
+                    ).toList();
+
+                    _selectedImages.addAll(xFiles);
+                  }
+
+                  // طباعة للتصحيح
+                  debugPrint('تم اختيار ${_selectedImages.length} صورة');
+                  for (var img in _selectedImages) {
+                    debugPrint('مسار الصورة: ${img.path}');
                   }
                 });
               },
-            ),
+            )
           ],
         ),
       ),

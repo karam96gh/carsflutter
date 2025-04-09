@@ -23,6 +23,8 @@ class AppRoutes {
   // خريطة المسارات
   static Map<String, WidgetBuilder> getRoutes() {
     return {
+      splash: (context) => const SplashScreen(),
+
       login: (context) => const LoginScreen(),
       dashboard: (context) => const DashboardScreen(),
       carList: (context) => const CarListScreen(),

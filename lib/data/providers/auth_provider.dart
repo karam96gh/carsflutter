@@ -11,9 +11,72 @@ class AuthProvider with ChangeNotifier {
   String? _token;
   bool _isLoading = false;
   String? _error;
-  Future<void> init() async {
-    await _loadSavedData();
+  Future<bool> init() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // تحميل التوكن
+      final savedToken = await _storageService.getToken();
+
+      if (savedToken != null && savedToken.isNotEmpty) {
+        _token = savedToken;
+
+        // تحديث عميل API بالتوكن
+        _apiClient.setToken(savedToken);
+
+        // تحميل بيانات المستخدم
+        final userData = await _storageService.getUserData();
+
+        if (userData != null) {
+          _currentUser = User.fromJson(userData);
+        } else {
+          // تحميل بيانات المستخدم من الخادم
+          try {
+            await _fetchCurrentUser();
+          } catch (e) {
+            // في حالة فشل استرجاع بيانات المستخدم، نقوم بتسجيل الخروج
+            debugPrint('فشل تحميل بيانات المستخدم: ${e.toString()}');
+            await logout();
+            _isLoading = false;
+            notifyListeners();
+            return false;
+          }
+        }
+
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('فشل تحميل البيانات المحفوظة: ${e.toString()}');
+      await logout(); // تسجيل الخروج في حالة وجود مشكلة
+    }
+
+    _isLoading = false;
+    notifyListeners();
+    return false;
   }
+
+  // طريقة جديدة للتحقق من حالة تسجيل الدخول
+  Future<bool> isLoggedIn() async {
+    if (_token != null && _currentUser != null) {
+      return true;
+    }
+
+    // إذا لم تكن البيانات محملة بعد، قم بتحميلها
+    if (!_isInitialized) {
+      final initialized = await init();
+      return initialized && _token != null && _currentUser != null;
+    }
+
+    return false;
+  }
+
+  // إضافة متغير لتتبع حالة التهيئة
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
+
   AuthProvider({
     required ApiClient apiClient,
     required StorageService storageService,
@@ -34,7 +97,6 @@ class AuthProvider with ChangeNotifier {
   String? get error => _error;
 
   // التحقق ما إذا كان المستخدم مسجل الدخول
-  bool get isLoggedIn => _token != null && _currentUser != null;
 
   // تحميل البيانات المحفوظة
   Future<void> _loadSavedData() async {
@@ -89,12 +151,17 @@ class AuthProvider with ChangeNotifier {
       _token = data['token'];
       _currentUser = User.fromJson(data['user']);
 
+      // طباعة للتأكد من البيانات
+      debugPrint('تم تسجيل الدخول بنجاح، التوكن: $_token');
+
       // حفظ البيانات محليًا
       await _storageService.saveToken(_token!);
       await _storageService.saveUserData(_currentUser!.toJson());
 
       // تحديث عميل API بالتوكن الجديد
       _apiClient.setToken(_token!);
+
+      // تحديث حالة التهيئة
     } catch (e) {
       _error = 'فشل تسجيل الدخول: ${e.toString()}';
       rethrow;
@@ -103,7 +170,6 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-
   // تسجيل الخروج
   Future<void> logout() async {
     _isLoading = true;

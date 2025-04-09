@@ -21,6 +21,7 @@ void main() async {
 
   // تحميل التوكن إذا كان موجودًا
   final token = await storageService.getToken();
+  debugPrint('التوكن المخزن: $token');
   if (token != null) {
     apiClient.setToken(token);
   }
@@ -73,7 +74,7 @@ class MyApp extends StatelessWidget {
           ],
 
           // مسارات التطبيق
-          initialRoute: AppRoutes.login,
+          initialRoute: AppRoutes.splash,
           routes: AppRoutes.getRoutes(),
           onGenerateRoute: AppRoutes.onGenerateRoute,
         );

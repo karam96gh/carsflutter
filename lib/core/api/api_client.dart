@@ -166,16 +166,20 @@ class ApiClient {
       final uri = Uri.parse('$baseUrl$endpoint');
 
       debugPrint('UPLOAD Request: $uri');
+      debugPrint('UPLOAD Data: $data');
 
       final request = http.MultipartRequest('POST', uri);
 
-      // إضافة الرؤوس
-      request.headers.addAll(_getHeaders(multipart: true));
+      // إضافة الرؤوس مع التأكد من نوع المحتوى المناسب
+      final headers = _getHeaders(multipart: true);
+      debugPrint('UPLOAD Headers: $headers');
+      request.headers.addAll(headers);
 
       // إضافة البيانات النصية
       data.forEach((key, value) {
         if (value is! MultipartFile) {
           request.fields[key] = value.toString();
+          debugPrint('Field $key: ${value.toString()}');
         }
       });
 
@@ -183,19 +187,24 @@ class ApiClient {
       for (final entry in data.entries) {
         if (entry.value is MultipartFile) {
           final file = entry.value as MultipartFile;
+          debugPrint('File ${entry.key}: ${file.path} (${file.filename})');
 
-          request.files.add(
-            await http.MultipartFile.fromPath(
-              entry.key,
-              file.path,
-              filename: file.filename,
-            ),
+          final httpFile = await http.MultipartFile.fromPath(
+            entry.key,
+            file.path,
+            filename: file.filename,
           );
+          request.files.add(httpFile);
+          debugPrint('File added to request: ${httpFile.filename} (${httpFile.length} bytes)');
         }
       }
 
+      debugPrint('Sending multipart request...');
       final streamedResponse = await request.send();
+      debugPrint('Response status code: ${streamedResponse.statusCode}');
+
       final response = await http.Response.fromStream(streamedResponse);
+      debugPrint('Response body: ${response.body}');
 
       return _handleResponse(response);
     } catch (e) {
@@ -203,7 +212,67 @@ class ApiClient {
       rethrow;
     }
   }
-}
+  Future<dynamic> uploadWithData(String endpoint, {required Map<String, dynamic> data}) async {
+    try {
+      final uri = Uri.parse('$baseUrl$endpoint');
+      debugPrint('طلب إرسال بيانات مع صور: $uri');
+
+      final request = http.MultipartRequest('POST', uri);
+
+      // إضافة الرؤوس
+      final headers = _getHeaders(multipart: true);
+      headers.remove('Content-Type'); // دع http يضبط Content-Type تلقائيًا
+      request.headers.addAll(headers);
+
+      // طباعة البيانات للتصحيح
+      debugPrint('البيانات التي سيتم إرسالها: $data');
+
+      // إضافة البيانات النصية أولاً
+      data.forEach((key, value) {
+        if (value is! MultipartFile) {
+          request.fields[key] = value.toString();
+          debugPrint('إضافة حقل نصي: $key = $value');
+        }
+      });
+
+      // ثم إضافة الملفات
+      for (final entry in data.entries) {
+        if (entry.value is MultipartFile) {
+          final file = entry.value as MultipartFile;
+
+          try {
+            final httpFile = await http.MultipartFile.fromPath(
+              entry.key,
+              file.path,
+              filename: file.filename,
+            );
+            request.files.add(httpFile);
+            debugPrint('تمت إضافة ملف: ${entry.key} = ${file.filename} (${httpFile.length} بايت)');
+          } catch (e) {
+            debugPrint('خطأ في إضافة الملف: $e');
+            rethrow;
+          }
+        }
+      }
+
+      // طباعة حقول الطلب النهائية
+      debugPrint('الحقول النصية في الطلب: ${request.fields}');
+      debugPrint('عدد الملفات في الطلب: ${request.files.length}');
+
+      // إرسال الطلب
+      debugPrint('جاري إرسال الطلب...');
+      final streamedResponse = await request.send();
+      debugPrint('تم استلام استجابة - رمز الحالة: ${streamedResponse.statusCode}');
+
+      final response = await http.Response.fromStream(streamedResponse);
+      debugPrint('محتوى الاستجابة: ${response.body}');
+
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('خطأ التحميل: ${e.toString()}');
+      rethrow;
+    }
+  }}
 
 // فئة مساعدة للملفات المتعددة (مكررة هنا للاتساق)
 class MultipartFile {
