@@ -44,20 +44,14 @@ class CarProvider with ChangeNotifier {
 
   // الحصول على سيارة بواسطة المعرف
   Future<Car> getCarById(int id) async {
+    // تعيين الحالة قبل بدء العملية
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      // محاولة العثور على السيارة في القائمة المحلية
-      final cachedCar = _cars.firstWhere(
-            (car) => car.id == id,
-        orElse: () => throw Exception('لم يتم العثور على السيارة محلياً'),
-      );
-
-      // تحديث بيانات السيارة من الخادم
+      // تنفيذ طلب API للحصول على بيانات السيارة
       final response = await _apiClient.get('/api/cars/$id');
-
       final carData = response['data'];
       final car = Car.fromJson(carData);
 
@@ -67,24 +61,20 @@ class CarProvider with ChangeNotifier {
         _cars[index] = car;
       }
 
-      return car;
-    } catch (e) {
-      // في حالة عدم وجود السيارة محلياً، جلب البيانات من الخادم
-      try {
-        final response = await _apiClient.get('/api/cars/$id');
-
-        final carData = response['data'];
-        return Car.fromJson(carData);
-      } catch (e) {
-        _error = 'فشل الحصول على بيانات السيارة: ${e.toString()}';
-        rethrow;
-      }
-    } finally {
+      // تحديث الحالة بعد نجاح العملية
       _isLoading = false;
       notifyListeners();
+
+      return car;
+    } catch (e) {
+      // تحديث الحالة في حالة الخطأ
+      _error = 'فشل الحصول على بيانات السيارة: ${e.toString()}';
+      _isLoading = false;
+      notifyListeners();
+
+      rethrow;
     }
   }
-
   // إضافة سيارة جديدة
 // تعديل دالة إضافة سيارة
   Future<int> addCar(Map<String, dynamic> carData) async {

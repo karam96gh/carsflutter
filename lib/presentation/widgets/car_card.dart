@@ -37,7 +37,7 @@ class CarCard extends StatelessWidget {
                 height: 180,
                 child: car.images.isNotEmpty
                     ? Image.network(
-                  car.images.first.url,
+                  car.images.first.fullUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(

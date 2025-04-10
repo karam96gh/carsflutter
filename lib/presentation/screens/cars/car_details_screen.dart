@@ -29,8 +29,9 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCarDetails();
-  }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCarDetails();
+    });  }
 
   Future<void> _loadCarDetails() async {
     setState(() {
@@ -247,7 +248,7 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
                               color: Colors.grey[300],
                             ),
                             child: Image.network(
-                              image.url,
+                              image.fullUrl,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
                                 return const Center(

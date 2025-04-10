@@ -1,3 +1,5 @@
+import '../../core/api/api_endpoints.dart';
+
 class CarImage {
   final int id;
   final String url;
@@ -56,5 +58,11 @@ class CarImage {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
+  }
+  String get fullUrl {
+    if (url.startsWith('http')) {
+      return url;
+    }
+    return '${ApiEndpoints.baseUrl}$url';
   }
 }
