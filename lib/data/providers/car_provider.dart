@@ -86,38 +86,23 @@ class CarProvider with ChangeNotifier {
   }
 
   // إضافة سيارة جديدة
-  Future<int> addCar(Map<String, dynamic> carData, {List<XFile>? images}) async {
+// تعديل دالة إضافة سيارة
+  Future<int> addCar(Map<String, dynamic> carData) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      // إذا كانت هناك صور، نقوم بتحويلها ودمجها مع بيانات السيارة
-      if (images != null && images.isNotEmpty) {
-        debugPrint('تحويل ${images.length} صورة لإضافتها مع السيارة');
+      // إنشاء سيارة بدون صور أولاً
+      final response = await _apiClient.post(
+        '/api/admin/cars',
+        data: carData,
+      );
 
-        // استخدام FormData بدلاً من JSON
-        final formData = await _prepareFormDataWithImages(carData, images);
+      final newCar = Car.fromJson(response['data']);
+      _cars.add(newCar);
 
-        final response = await _apiClient.uploadWithData(
-          '/api/admin/cars',
-          data: formData,
-        );
-
-        final newCar = Car.fromJson(response['data']);
-        _cars.add(newCar);
-        return newCar.id;
-      } else {
-        // إضافة سيارة بدون صور (طريقة العمل الحالية)
-        final response = await _apiClient.post(
-          '/api/admin/cars',
-          data: carData,
-        );
-
-        final newCar = Car.fromJson(response['data']);
-        _cars.add(newCar);
-        return newCar.id;
-      }
+      return newCar.id; // إرجاع معرف السيارة الجديدة
     } catch (e) {
       _error = 'فشل إضافة السيارة: ${e.toString()}';
       rethrow;
@@ -127,50 +112,57 @@ class CarProvider with ChangeNotifier {
     }
   }
 
-// دالة مساعدة لتحضير FormData مع الصور
-  Future<Map<String, dynamic>> _prepareFormDataWithImages(
-      Map<String, dynamic> carData, List<XFile> images) async {
+// تحسين دالة تحميل صور السيارة
+  Future<void> uploadCarImages(int carId, List<XFile> images) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
 
-    final formData = <String, dynamic>{};
+    try {
+      debugPrint('بدء تحميل ${images.length} صورة للسيارة رقم $carId');
 
-    // طباعة بيانات السيارة للتصحيح
-    debugPrint('بيانات السيارة قبل التحويل: $carData');
+      for (int i = 0; i < images.length; i++) {
+        final xFile = images[i];
+        debugPrint('جاري معالجة الصورة ${i+1}/${images.length}: ${xFile.path}');
 
-    // إضافة بيانات السيارة
-    // التأكد من إضافة جميع الحقول بالضبط كما هي
-    carData.forEach((key, value) {
-      if (value != null) {
-        formData[key] = value.toString();
-        debugPrint('إضافة حقل $key: ${value.toString()}');
+        // التحقق من وجود الملف
+        final file = File(xFile.path);
+        if (!await file.exists()) {
+          debugPrint('الملف غير موجود: ${xFile.path}');
+          continue;
+        }
+
+        // طباعة حجم الملف
+        final fileSize = await file.length();
+        debugPrint('حجم الملف: $fileSize بايت');
+
+        // إعداد الحقول النصية
+        final fields = {
+          'isMain': i == 0 ? 'true' : 'false',
+          'is360View': 'false',
+        };
+
+        // محاولة رفع الصورة باستخدام المسار المباشر
+        await _apiClient.upload(
+          '/api/admin/cars/$carId/images',
+          filePath: xFile.path,
+          fields: fields,
+        );
+
+        debugPrint('تم تحميل الصورة ${i+1} بنجاح');
       }
-    });
 
-    // إضافة الصور
-    if (images.isNotEmpty) {
-      // طريقة 1: إرسال الصورة الأولى فقط في حقل "image"
-      formData['image'] = await MultipartFile.fromFile(
-        images[0].path,
-        filename: images[0].name,
-      );
-      debugPrint('تمت إضافة الصورة الرئيسية: ${images[0].path}');
-
-      // طريقة 2: إرسال صور متعددة إذا كان الباكاند يدعم ذلك
-      // يمكن تعليق هذا الجزء إذا كان الباكاند يدعم صورة واحدة فقط
-
-    for (int i = 1; i < images.length; i++) {
-      formData['additionalImages[$i]'] = await MultipartFile.fromFile(
-        images[i].path,
-        filename: images[i].name,
-      );
-      debugPrint('تمت إضافة صورة إضافية ${i}: ${images[i].path}');
+      // تحديث بيانات السيارة بعد تحميل الصور
+      await getCarById(carId);
+    } catch (e) {
+      _error = 'فشل تحميل الصور: ${e.toString()}';
+      debugPrint('خطأ في تحميل الصور: ${e.toString()}');
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-
-    }
-
-    return formData;
-  }
-  // تحديث سيارة
-  Future<void> updateCar(int id, Map<String, dynamic> carData) async {
+  }  Future<void> updateCar(int id, Map<String, dynamic> carData) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -218,59 +210,6 @@ class CarProvider with ChangeNotifier {
   }
 
   // تحميل صور السيارة
-  Future<void> uploadCarImages(int carId, List<XFile> images) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      debugPrint('بدء تحميل ${images.length} صورة للسيارة رقم $carId');
-
-      for (int i = 0; i < images.length; i++) {
-        final image = images[i];
-        debugPrint('تحميل الصورة ${i+1}/${images.length}: ${image.path}');
-
-        // التحقق من وجود الملف
-        final file = File(image.path);
-        if (!await file.exists()) {
-          debugPrint('الملف غير موجود: ${image.path}');
-          continue;
-        }
-
-        // طباعة حجم الملف للتصحيح
-        final fileSize = await file.length();
-        debugPrint('حجم ملف الصورة: $fileSize بايت');
-
-        // إنشاء الصيغة المناسبة للباكاند
-        final formData = {
-          'image': await MultipartFile.fromFile(
-            image.path,
-            filename: image.name,
-          ),
-          // إضافة معلومات إضافية قد يتوقعها الباكاند
-          'carId': carId.toString(),
-          'isMain': i == 0 ? 'true' : 'false', // الصورة الأولى هي الرئيسية
-        };
-
-        final response = await _apiClient.upload(
-          '/api/admin/cars/$carId/images',
-          data: formData,
-        );
-
-        debugPrint('تم تحميل الصورة ${i+1} بنجاح، الاستجابة: $response');
-      }
-
-      // تحديث بيانات السيارة بعد تحميل الصور
-      await getCarById(carId);
-    } catch (e) {
-      _error = 'فشل تحميل الصور: ${e.toString()}';
-      debugPrint('خطأ في تحميل الصور: ${e.toString()}');
-      rethrow;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }  // حذف صورة السيارة
   Future<void> deleteCarImage(int imageId) async {
     _isLoading = true;
     _error = null;

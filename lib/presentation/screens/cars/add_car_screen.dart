@@ -166,20 +166,31 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
   }
 
   // حفظ بيانات السيارة
+// تعديل دالة حفظ السيارة
   Future<void> _saveCar() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
+      // إعداد بيانات السيارة
       final carData = {
         'title': _titleController.text,
         'description': _descriptionController.text,
-        // ... باقي البيانات
+        'type': _type,
+        'category': _category,
+        'make': _makeController.text,
+        'model': _modelController.text,
+        'year': int.parse(_yearController.text),
+        'mileage': _mileageController.text.isEmpty ? null : int.parse(_mileageController.text),
+        'price': double.parse(_priceController.text),
+        'contactNumber': _contactNumberController.text,
+        'location': _locationController.text.isEmpty ? null : _locationController.text,
+        'specifications': _specifications,
       };
 
       if (widget.carId != null) {
-        // تعديل السيارة
+        // تعديل سيارة موجودة
         await Provider.of<CarProvider>(context, listen: false)
             .updateCar(widget.carId!, carData);
 
@@ -189,9 +200,15 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
               .uploadCarImages(widget.carId!, _selectedImages);
         }
       } else {
-        // إضافة سيارة جديدة مع الصور في نفس الطلب
-        await Provider.of<CarProvider>(context, listen: false)
-            .addCar(carData, images: _selectedImages);
+        // إضافة سيارة جديدة
+        final carId = await Provider.of<CarProvider>(context, listen: false)
+            .addCar(carData);
+
+        // تحميل الصور بعد إنشاء السيارة
+        if (_selectedImages.isNotEmpty) {
+          await Provider.of<CarProvider>(context, listen: false)
+              .uploadCarImages(carId, _selectedImages);
+        }
       }
 
       if (!mounted) return;
@@ -217,7 +234,6 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
       );
     }
   }
-
   @override
   Widget build(BuildContext context) {
     if (!_isInitialized) {

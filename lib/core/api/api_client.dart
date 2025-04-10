@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:http_parser/http_parser.dart';
 import '../errors/exceptions.dart';
 import 'api_endpoints.dart';
 
@@ -161,58 +163,78 @@ class ApiClient {
   }
 
   // طلب تحميل ملف
-  Future<dynamic> upload(String endpoint, {required Map<String, dynamic> data}) async {
+  Future<dynamic> upload(String endpoint, {required String filePath, required Map<String, String> fields}) async {
     try {
       final uri = Uri.parse('$baseUrl$endpoint');
 
       debugPrint('UPLOAD Request: $uri');
-      debugPrint('UPLOAD Data: $data');
+      debugPrint('File Path: $filePath');
+      debugPrint('Fields: $fields');
 
-      final request = http.MultipartRequest('POST', uri);
-
-      // إضافة الرؤوس مع التأكد من نوع المحتوى المناسب
-      final headers = _getHeaders(multipart: true);
-      debugPrint('UPLOAD Headers: $headers');
-      request.headers.addAll(headers);
-
-      // إضافة البيانات النصية
-      data.forEach((key, value) {
-        if (value is! MultipartFile) {
-          request.fields[key] = value.toString();
-          debugPrint('Field $key: ${value.toString()}');
-        }
-      });
-
-      // إضافة الملفات
-      for (final entry in data.entries) {
-        if (entry.value is MultipartFile) {
-          final file = entry.value as MultipartFile;
-          debugPrint('File ${entry.key}: ${file.path} (${file.filename})');
-
-          final httpFile = await http.MultipartFile.fromPath(
-            entry.key,
-            file.path,
-            filename: file.filename,
-          );
-          request.files.add(httpFile);
-          debugPrint('File added to request: ${httpFile.filename} (${httpFile.length} bytes)');
-        }
+      // التحقق من وجود الملف
+      final file = File(filePath);
+      if (!await file.exists()) {
+        throw Exception('الملف غير موجود: $filePath');
       }
 
-      debugPrint('Sending multipart request...');
-      final streamedResponse = await request.send();
-      debugPrint('Response status code: ${streamedResponse.statusCode}');
+      final filename = filePath.split('/').last;
+      final fileSize = await file.length();
 
+      // تحديد نوع MIME استنادًا إلى امتداد الملف
+      String contentType = 'application/octet-stream';
+      if (filename.toLowerCase().endsWith('.jpg') || filename.toLowerCase().endsWith('.jpeg')) {
+        contentType = 'image/jpeg';
+      } else if (filename.toLowerCase().endsWith('.png')) {
+        contentType = 'image/png';
+      } else if (filename.toLowerCase().endsWith('.webp')) {
+        contentType = 'image/webp';
+      }
+
+      debugPrint('Filename: $filename, Size: $fileSize bytes, Type: $contentType');
+
+      // إنشاء طلب متعدد الأجزاء
+      final request = http.MultipartRequest('POST', uri);
+
+      // إضافة الرؤوس
+      if (_token != null) {
+        request.headers['Authorization'] = 'Bearer $_token';
+      }
+      request.headers['Accept'] = 'application/json';
+
+      // إضافة الحقول النصية
+      request.fields.addAll(fields);
+
+      // إضافة الملف باستخدام النوع الصحيح
+      request.files.add(
+          await http.MultipartFile.fromPath(
+              'image',
+              filePath,
+              filename: filename,
+              contentType: MediaType.parse(contentType)
+          )
+      );
+
+      debugPrint('إرسال طلب متعدد الأجزاء مع ${request.files.length} ملفات و ${request.fields.length} حقول');
+      for (var file in request.files) {
+        debugPrint('ملف: ${file.field}, اسم: ${file.filename}, حجم: ${file.length} بايت, نوع: ${file.contentType}');
+      }
+
+      // إرسال الطلب
+      final streamedResponse = await request.send();
+      debugPrint('كود استجابة الخادم: ${streamedResponse.statusCode}');
+
+      // قراءة جسم الاستجابة
       final response = await http.Response.fromStream(streamedResponse);
-      debugPrint('Response body: ${response.body}');
+      debugPrint('محتوى الاستجابة: ${response.body}');
 
       return _handleResponse(response);
     } catch (e) {
-      debugPrint('UPLOAD Error: ${e.toString()}');
+      debugPrint('خطأ في رفع الملف: ${e.toString()}');
       rethrow;
     }
   }
   Future<dynamic> uploadWithData(String endpoint, {required Map<String, dynamic> data}) async {
+
     try {
       final uri = Uri.parse('$baseUrl$endpoint');
       debugPrint('طلب إرسال بيانات مع صور: $uri');
@@ -284,10 +306,20 @@ class MultipartFile {
     required this.filename,
   });
 
-  static Future<MultipartFile> fromFile(String path, {required String filename}) async {
+  static Future<MultipartFile> fromFile(String path, {String? filename}) async {
+    // التحقق من وجود الملف
+    final file = File(path);
+    if (!await file.exists()) {
+      throw Exception('الملف غير موجود في المسار: $path');
+    }
+
+    // طباعة معلومات الملف للتصحيح
+    final fileSize = await file.length();
+    debugPrint('تم إنشاء ملف للرفع: $path (${fileSize} بايت), اسم الملف: ${filename ?? path.split('/').last}');
+
     return MultipartFile(
       path: path,
-      filename: filename,
+      filename: filename ?? path.split('/').last,
     );
   }
 }

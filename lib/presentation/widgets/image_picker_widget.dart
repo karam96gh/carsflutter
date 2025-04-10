@@ -4,10 +4,12 @@ import 'dart:io';
 
 class ImagePickerWidget extends StatelessWidget {
   final Function(List<File>) onImagesSelected;
+  final int maxImages;
 
   const ImagePickerWidget({
     Key? key,
     required this.onImagesSelected,
+    this.maxImages = 5,
   }) : super(key: key);
 
   Future<void> _pickImages() async {
@@ -16,7 +18,14 @@ class ImagePickerWidget extends StatelessWidget {
     try {
       final List<XFile> images = await picker.pickMultiImage();
       if (images.isNotEmpty) {
-        final List<File> fileImages = images.map((xFile) => File(xFile.path)).toList();
+        // التحقق من عدم تجاوز الحد الأقصى
+        final imagesToUse = images.length > maxImages ? images.sublist(0, maxImages) : images;
+        final List<File> fileImages = imagesToUse.map((xFile) => File(xFile.path)).toList();
+
+        if (images.length > maxImages) {
+          debugPrint('تم اختيار ${images.length} صورة، لكن سيتم استخدام $maxImages فقط');
+        }
+
         onImagesSelected(fileImages);
       }
     } catch (e) {
