@@ -45,8 +45,10 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
   void initState() {
     super.initState();
     if (widget.carId != null) {
-      _loadCarData();
-    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Ahora es seguro llamar a métodos que actualicen el estado
+        _loadCarData();
+      });    } else {
       _isInitialized = true;
     }
   }
