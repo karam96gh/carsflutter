@@ -1,3 +1,5 @@
+// تعديل ملف lib/config/app_routes.dart
+
 import 'package:flutter/material.dart';
 import '../presentation/screens/auth/login_screen.dart';
 import '../presentation/screens/auth/splash_screen.dart';
@@ -24,11 +26,10 @@ class AppRoutes {
   static Map<String, WidgetBuilder> getRoutes() {
     return {
       splash: (context) => const SplashScreen(),
-
       login: (context) => const LoginScreen(),
       dashboard: (context) => const DashboardScreen(),
       carList: (context) => const CarListScreen(),
-      addCar: (context) => const AddEditCarScreen(),
+      addCar: (context) => const AddCarScreen(),
       settings: (context) => const Scaffold(body: Center(child: Text('شاشة الإعدادات'))),
       profile: (context) => const Scaffold(body: Center(child: Text('الملف الشخصي'))),
     };
@@ -60,7 +61,7 @@ class AppRoutes {
       // التحقق من وجود معرف السيارة
         if (args is int) {
           return MaterialPageRoute(
-            builder: (context) => AddEditCarScreen(carId: args),
+            builder: (context) => EditCarScreen(carId: args),
           );
         }
         // في حالة عدم وجود معرف

@@ -1,3 +1,5 @@
+// تعديل ملف lib/data/models/car_image.dart
+
 import '../../core/api/api_endpoints.dart';
 
 class CarImage {
@@ -59,6 +61,8 @@ class CarImage {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  // الحصول على الرابط الكامل للصورة
   String get fullUrl {
     if (url.startsWith('http')) {
       return url;

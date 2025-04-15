@@ -1,3 +1,5 @@
+// تعديل شاشة ملف lib/presentation/screens/cars/add_car_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
@@ -11,16 +13,14 @@ import '../../widgets/loading_indicator.dart';
 import '../../../core/utils/validators.dart';
 import '../../../config/app_theme.dart';
 
-class AddEditCarScreen extends StatefulWidget {
-  final int? carId; // null للإضافة، قيمة للتعديل
-
-  const AddEditCarScreen({Key? key, this.carId}) : super(key: key);
+class AddCarScreen extends StatefulWidget {
+  const AddCarScreen({Key? key}) : super(key: key);
 
   @override
-  State<AddEditCarScreen> createState() => _AddEditCarScreenState();
+  State<AddCarScreen> createState() => _AddCarScreenState();
 }
 
-class _AddEditCarScreenState extends State<AddEditCarScreen> {
+class _AddCarScreenState extends State<AddCarScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -36,22 +36,8 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
   String _category = 'SEDAN'; // LUXURY, ECONOMY, SUV, SPORTS, SEDAN, OTHER
 
   bool _isLoading = false;
-  bool _isInitialized = false;
   List<XFile> _selectedImages = [];
-  List<String> _existingImages = [];
   List<Map<String, String>> _specifications = [];
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.carId != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        // Ahora es seguro llamar a métodos que actualicen el estado
-        _loadCarData();
-      });    } else {
-      _isInitialized = true;
-    }
-  }
 
   @override
   void dispose() {
@@ -65,44 +51,6 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
     _contactNumberController.dispose();
     _locationController.dispose();
     super.dispose();
-  }
-
-  // تحميل بيانات السيارة للتعديل
-  Future<void> _loadCarData() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final car = await Provider.of<CarProvider>(context, listen: false)
-          .getCarById(widget.carId!);
-
-      _titleController.text = car.title;
-      _descriptionController.text = car.description;
-      _makeController.text = car.make;
-      _modelController.text = car.model;
-      _yearController.text = car.year.toString();
-      _mileageController.text = car.mileage?.toString() ?? '';
-      _priceController.text = car.price.toString();
-      _contactNumberController.text = car.contactNumber;
-      _locationController.text = car.location ?? '';
-
-      setState(() {
-        _type = car.type;
-        _category = car.category;
-        _existingImages = car.images.map((img) => img.url).toList();
-        _specifications = car.specifications
-            .map((spec) => {'key': spec.key, 'value': spec.value})
-            .toList();
-        _isInitialized = true;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('فشل تحميل بيانات السيارة: ${e.toString()}')),
-        );
-        Navigator.pop(context);
-      }
-    }
   }
 
   // إضافة مواصفة جديدة
@@ -168,7 +116,6 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
   }
 
   // حفظ بيانات السيارة
-// تعديل دالة حفظ السيارة
   Future<void> _saveCar() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -191,33 +138,21 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
         'specifications': _specifications,
       };
 
-      if (widget.carId != null) {
-        // تعديل سيارة موجودة
+      // إضافة سيارة جديدة
+      final carId = await Provider.of<CarProvider>(context, listen: false)
+          .addCar(carData);
+
+      // تحميل الصور بعد إنشاء السيارة
+      if (_selectedImages.isNotEmpty) {
         await Provider.of<CarProvider>(context, listen: false)
-            .updateCar(widget.carId!, carData);
-
-        // تحميل الصور الجديدة إذا كانت هناك
-        if (_selectedImages.isNotEmpty) {
-          await Provider.of<CarProvider>(context, listen: false)
-              .uploadCarImages(widget.carId!, _selectedImages);
-        }
-      } else {
-        // إضافة سيارة جديدة
-        final carId = await Provider.of<CarProvider>(context, listen: false)
-            .addCar(carData);
-
-        // تحميل الصور بعد إنشاء السيارة
-        if (_selectedImages.isNotEmpty) {
-          await Provider.of<CarProvider>(context, listen: false)
-              .uploadCarImages(carId, _selectedImages);
-        }
+            .uploadCarImages(carId, _selectedImages);
       }
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(widget.carId != null ? 'تم تحديث السيارة بنجاح' : 'تمت إضافة السيارة بنجاح'),
+        const SnackBar(
+          content: Text('تمت إضافة السيارة بنجاح'),
           backgroundColor: Colors.green,
         ),
       );
@@ -236,37 +171,17 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
       );
     }
   }
+
   @override
   Widget build(BuildContext context) {
-    if (!_isInitialized) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.carId != null ? 'تعديل السيارة' : 'إضافة سيارة'),
-        ),
-        body: const CircularProgressIndicator(),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.carId != null ? 'تعديل السيارة' : 'إضافة سيارة'),
-        actions: [
-          if (widget.carId != null)
-            IconButton(
-              icon: const Icon(Icons.photo_library),
-              onPressed: () {
-                // توجيه إلى شاشة إدارة الصور
-                // يمكن إضافتها لاحقاً
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('إدارة الصور ستتوفر قريباً')),
-                );
-              },
-              tooltip: 'إدارة الصور',
-            ),
-        ],
+        title: const Text('إضافة سيارة'),
       ),
       body: _isLoading
-          ? const CircularProgressIndicator()
+          ? const Center(
+        child: CircularProgressIndicator(),
+      )
           : SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -595,7 +510,7 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
 
               // زر الحفظ
               CustomButton(
-                text: widget.carId != null ? 'تحديث السيارة' : 'إضافة السيارة',
+                text: 'إضافة السيارة',
                 isLoading: _isLoading,
                 onPressed: _isLoading ? null : _saveCar,
               ),
@@ -636,108 +551,72 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
             const SizedBox(height: 16),
 
             // عرض الصور المختارة
-            if (_selectedImages.isNotEmpty || _existingImages.isNotEmpty)
+            if (_selectedImages.isNotEmpty)
               SizedBox(
                 height: 120,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  itemCount: _selectedImages.length + _existingImages.length,
+                  itemCount: _selectedImages.length,
                   itemBuilder: (context, index) {
-                    if (index < _existingImages.length) {
-                      // عرض الصور الموجودة مسبقًا
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                _existingImages[index],
-                                width: 120,
-                                height: 120,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    width: 120,
-                                    height: 120,
-                                    color: Colors.grey[300],
-                                    child: const Icon(
-                                      Icons.error,
-                                      color: Colors.red,
-                                    ),
-                                  );
-                                },
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(_selectedImages[index].path),
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            top: 5,
+                            right: 5,
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedImages.removeAt(index);
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
                               ),
                             ),
+                          ),
+                          if (index == 0)
                             Positioned(
-                              top: 5,
-                              right: 5,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _existingImages.removeAt(index);
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
+                              bottom: 5,
+                              left: 5,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'رئيسية',
+                                  style: TextStyle(
                                     color: Colors.white,
-                                    size: 16,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      );
-                    } else {
-                      // عرض الصور المختارة حديثًا
-                      final newIndex = index - _existingImages.length;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.file(
-                                File(_selectedImages[newIndex].path),
-                                width: 120,
-                                height: 120,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            Positioned(
-                              top: 5,
-                              right: 5,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedImages.removeAt(newIndex);
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
+                        ],
+                      ),
+                    );
                   },
                 ),
               ),
@@ -745,12 +624,11 @@ class _AddEditCarScreenState extends State<AddEditCarScreen> {
             const SizedBox(height: 16),
 
             // زر إضافة صور
-            // تحديث طريقة معالجة الصور المختارة
             ImagePickerWidget(
               onImagesSelected: (images) {
                 setState(() {
                   // التحقق من عدم تجاوز 5 صور
-                  final totalImages = _selectedImages.length + _existingImages.length;
+                  final totalImages = _selectedImages.length;
                   final remainingSlots = 5 - totalImages;
 
                   if (remainingSlots <= 0) {

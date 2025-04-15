@@ -1,3 +1,5 @@
+// تعديل ملف lib/data/providers/car_provider.dart
+
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
@@ -55,7 +57,7 @@ class CarProvider with ChangeNotifier {
       final carData = response['data'];
       final car = Car.fromJson(carData);
 
-      // تحديث السيارة في القائمة المحلية إذا كانت موجودة
+      // تحديث السيارة في القائمة المحلية إذا كانت موجودة - بدون notifyListeners هنا
       final index = _cars.indexWhere((c) => c.id == id);
       if (index != -1) {
         _cars[index] = car;
@@ -63,7 +65,7 @@ class CarProvider with ChangeNotifier {
 
       // تحديث الحالة بعد نجاح العملية
       _isLoading = false;
-      notifyListeners();
+      notifyListeners(); // نداء واحد فقط في نهاية الدالة
 
       return car;
     } catch (e) {
@@ -75,8 +77,8 @@ class CarProvider with ChangeNotifier {
       rethrow;
     }
   }
+
   // إضافة سيارة جديدة
-// تعديل دالة إضافة سيارة
   Future<int> addCar(Map<String, dynamic> carData) async {
     _isLoading = true;
     _error = null;
@@ -102,7 +104,7 @@ class CarProvider with ChangeNotifier {
     }
   }
 
-// تحسين دالة تحميل صور السيارة
+  // تحميل صور السيارة
   Future<void> uploadCarImages(int carId, List<XFile> images) async {
     _isLoading = true;
     _error = null;
@@ -142,8 +144,8 @@ class CarProvider with ChangeNotifier {
         debugPrint('تم تحميل الصورة ${i+1} بنجاح');
       }
 
-      // تحديث بيانات السيارة بعد تحميل الصور
-      await getCarById(carId);
+      // تحديث بيانات السيارة بعد تحميل الصور - بدون تحديث واجهة المستخدم أثناء الـBuild
+      await _refreshCarData(carId);
     } catch (e) {
       _error = 'فشل تحميل الصور: ${e.toString()}';
       debugPrint('خطأ في تحميل الصور: ${e.toString()}');
@@ -152,7 +154,30 @@ class CarProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
-  }  Future<void> updateCar(int id, Map<String, dynamic> carData) async {
+  }
+
+  // تحديث بيانات السيارة فقط دون إشعارات
+  Future<Car> _refreshCarData(int id) async {
+    try {
+      final response = await _apiClient.get('/api/cars/$id');
+      final carData = response['data'];
+      final car = Car.fromJson(carData);
+
+      // تحديث السيارة في القائمة المحلية
+      final index = _cars.indexWhere((c) => c.id == id);
+      if (index != -1) {
+        _cars[index] = car;
+      }
+
+      return car;
+    } catch (e) {
+      debugPrint('فشل تحديث بيانات السيارة: ${e.toString()}');
+      rethrow;
+    }
+  }
+
+  // تحديث سيارة
+  Future<void> updateCar(int id, Map<String, dynamic> carData) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -199,19 +224,28 @@ class CarProvider with ChangeNotifier {
     }
   }
 
-  // تحميل صور السيارة
+  // حذف صورة من السيارة
   Future<void> deleteCarImage(int imageId) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
+      // طباعة للتصحيح
+      debugPrint('جاري حذف الصورة رقم $imageId');
+
+      // إرسال طلب حذف الصورة
       await _apiClient.delete('/api/admin/cars/images/$imageId');
 
-      // تحديث السيارات المتأثرة
-      await loadCars();
+      debugPrint('تم حذف الصورة بنجاح');
+
+      // تحديث القائمة بعد الحذف
+      for (var car in _cars) {
+        car.images.removeWhere((img) => img.id == imageId);
+      }
     } catch (e) {
       _error = 'فشل حذف الصورة: ${e.toString()}';
+      debugPrint('خطأ في حذف الصورة: ${e.toString()}');
       rethrow;
     } finally {
       _isLoading = false;
@@ -331,33 +365,5 @@ class CarProvider with ChangeNotifier {
       _error = 'فشل الحصول على السيارات المشابهة: ${e.toString()}';
       rethrow;
     }
-  }
-}
-
-// فئة مساعدة للملفات المتعددة
-class MultipartFile {
-  final String path;
-  final String filename;
-
-  MultipartFile({
-    required this.path,
-    required this.filename,
-  });
-
-  static Future<MultipartFile> fromFile(String path, {required String filename}) async {
-    // التحقق من وجود الملف
-    final file = File(path);
-    if (!await file.exists()) {
-      throw Exception('الملف غير موجود في المسار: $path');
-    }
-
-    // طباعة حجم الملف للتصحيح
-    final fileSize = await file.length();
-    debugPrint('حجم ملف الصورة: $fileSize بايت');
-
-    return MultipartFile(
-      path: path,
-      filename: filename,
-    );
   }
 }
