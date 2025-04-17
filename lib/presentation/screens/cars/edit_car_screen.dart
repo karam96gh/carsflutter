@@ -1,5 +1,3 @@
-// تعديل ملف lib/presentation/screens/cars/edit_car_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
@@ -10,9 +8,9 @@ import '../../../data/providers/car_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/image_picker_widget.dart';
-import '../../widgets/loading_indicator.dart';
 import '../../../core/utils/validators.dart';
 import '../../../config/app_theme.dart';
+import '../../../config/app_constants.dart';
 
 class EditCarScreen extends StatefulWidget {
   final int carId;
@@ -49,7 +47,8 @@ class _EditCarScreenState extends State<EditCarScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadCarData();
-    });  }
+    });
+  }
 
   @override
   void dispose() {
@@ -225,7 +224,7 @@ class _EditCarScreenState extends State<EditCarScreen> {
         'price': double.parse(_priceController.text),
         'contactNumber': _contactNumberController.text,
         'location': _locationController.text.isEmpty ? null : _locationController.text,
-        'specifications': _specifications,
+        'specifications': _specifications, // تأكد من تضمين المواصفات هنا
       };
 
       // تعديل السيارة
@@ -349,8 +348,80 @@ class _EditCarScreenState extends State<EditCarScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // باقي الحقول كما هي مع نفس المحتوى السابق
-                      // ...
+                      // الشركة المصنعة
+                      CustomTextField(
+                        controller: _makeController,
+                        labelText: 'الشركة المصنعة',
+                        hintText: 'مثال: تويوتا، مرسيدس، هوندا',
+                        prefixIcon: Icons.business,
+                        validator: Validators.required('يرجى إدخال الشركة المصنعة'),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // الموديل
+                      CustomTextField(
+                        controller: _modelController,
+                        labelText: 'الموديل',
+                        hintText: 'مثال: كامري، E200، سيفيك',
+                        prefixIcon: Icons.branding_watermark,
+                        validator: Validators.required('يرجى إدخال الموديل'),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // فئة السيارة
+                      DropdownButtonFormField<String>(
+                        value: _category,
+                        decoration: const InputDecoration(
+                          labelText: 'فئة السيارة',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.category),
+                        ),
+                        items: AppConstants.carCategories.entries.map((entry) {
+                          return DropdownMenuItem(
+                            value: entry.key,
+                            child: Text(entry.value),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              _category = value;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // سنة الصنع
+                      CustomTextField(
+                        controller: _yearController,
+                        labelText: 'سنة الصنع',
+                        hintText: 'مثال: 2023',
+                        prefixIcon: Icons.calendar_today,
+                        keyboardType: TextInputType.number,
+                        validator: Validators.combine([
+                          Validators.required('يرجى إدخال سنة الصنع'),
+                          Validators.isInteger('يرجى إدخال سنة صالحة'),
+                          Validators.validYear('يرجى إدخال سنة صالحة')
+                        ]),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // المسافة المقطوعة (للسيارات المستعملة)
+                      if (_type == 'USED')
+                        Column(
+                          children: [
+                            CustomTextField(
+                              controller: _mileageController,
+                              labelText: 'المسافة المقطوعة (كم)',
+                              hintText: 'مثال: 50000',
+                              prefixIcon: Icons.speed,
+                              keyboardType: TextInputType.number,
+                              validator: Validators.isInteger('يرجى إدخال قيمة صحيحة'),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
 
                       // السعر
                       CustomTextField(
@@ -370,12 +441,157 @@ class _EditCarScreenState extends State<EditCarScreen> {
               ),
               const SizedBox(height: 24),
 
-              // باقي البطاقات والأقسام
-              // ...
+              // معلومات الاتصال
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'معلومات الاتصال',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // رقم التواصل (واتساب)
+                      CustomTextField(
+                        controller: _contactNumberController,
+                        labelText: 'رقم التواصل (واتساب)',
+                        hintText: 'مثال: +966xxxxxxxxx',
+                        prefixIcon: Icons.phone,
+                        keyboardType: TextInputType.phone,
+                        validator: Validators.required('يرجى إدخال رقم التواصل'),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // الموقع
+                      CustomTextField(
+                        controller: _locationController,
+                        labelText: 'الموقع',
+                        hintText: 'مثال: الرياض، جدة، الدمام',
+                        prefixIcon: Icons.location_on,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // الوصف
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'وصف السيارة',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      TextFormField(
+                        controller: _descriptionController,
+                        maxLines: 5,
+                        decoration: const InputDecoration(
+                          hintText: 'أدخل وصفًا تفصيليًا للسيارة...',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: Validators.required('يرجى إدخال وصف السيارة'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // المواصفات الفنية
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'المواصفات الفنية',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.add_circle,
+                              color: AppTheme.primaryColor,
+                            ),
+                            onPressed: _addSpecification,
+                            tooltip: 'إضافة مواصفة',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      if (_specifications.isEmpty)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text(
+                              'لا توجد مواصفات حتى الآن. انقر على زر الإضافة لإضافة مواصفات فنية للسيارة.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _specifications.length,
+                          separatorBuilder: (_, __) => const Divider(),
+                          itemBuilder: (context, index) {
+                            final spec = _specifications[index];
+                            return ListTile(
+                              title: Text(spec['key']!),
+                              subtitle: Text(spec['value']!),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () => _removeSpecification(index),
+                                tooltip: 'حذف',
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
 
               // زر الحفظ
               CustomButton(
-                text: 'تحديث السيارة',
+                text: 'حفظ التعديلات',
                 isLoading: _isLoading,
                 onPressed: _isLoading ? null : _saveCar,
               ),
@@ -598,7 +814,7 @@ class _EditCarScreenState extends State<EditCarScreen> {
                   }
 
                   // طباعة للتصحيح
-                  debugPrint('تم اختيار ${_selectedImages.length} صورة');
+                  debugPrint('تم اختيار ${_selectedImages.length} صور جديدة');
                   for (var img in _selectedImages) {
                     debugPrint('مسار الصورة: ${img.path}');
                   }
