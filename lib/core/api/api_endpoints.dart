@@ -3,7 +3,7 @@
  * تستخدم للاتساق في جميع أنحاء التطبيق
  */
 class ApiEndpoints {
-  static const String baseUrl = 'http://192.168.74.13:4000'; // عنوان الخادم المحلي للمحاكي
+  static const String baseUrl = 'http://192.168.74.25:4000'; // عنوان الخادم المحلي للمحاكي
 
   // مسارات المصادقة
   static const String login = '/api/auth/login';
